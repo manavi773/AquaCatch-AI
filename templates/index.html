@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="description" content="AquaCatch AI – Real-time water quality and fishing safety advisor for artisanal fishermen. Powered by Gemini Vision AI and live weather data." />
+  <meta name="theme-color" content="#0a1628" />
+  <title>AquaCatch AI – Fishing Safety Advisor</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy:    { DEFAULT: '#0a1628', 800: '#0d1f3c', 700: '#102548', 600: '#163060', 500: '#1e3f7a' },
+            ocean:   { DEFAULT: '#1565c0', 400: '#2589d4', 300: '#42a5f5', 200: '#90caf9' },
+            safe:    { DEFAULT: '#16a34a', light: '#22c55e', bg: '#052e16', border: '#166534' },
+            caution: { DEFAULT: '#d97706', light: '#f59e0b', bg: '#431407', border: '#92400e' },
+            danger:  { DEFAULT: '#dc2626', light: '#ef4444', bg: '#450a0a', border: '#991b1b' },
+            marine:  { 50: '#e0f2fe', 100: '#bae6fd', 200: '#7dd3fc', 300: '#38bdf8' },
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          fontSize: {
+            '2xs': '0.65rem',
+            base: ['1rem', { lineHeight: '1.6' }],
+            xl:   ['1.25rem', { lineHeight: '1.4' }],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* ── Reset / Base ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: #0a1628;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Background texture ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 120% 60% at 50% -10%, rgba(21, 101, 192, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 40% at 100% 100%, rgba(10, 22, 40, 0.9) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Wave pattern at bottom ── */
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 120px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath d='M0,60 C200,100 400,20 600,60 C800,100 1000,20 1200,60 L1200,120 L0,120 Z' fill='rgba(21,101,192,0.06)'/%3E%3C/svg%3E") bottom/cover no-repeat;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Main wrapper ── */
+    #app { position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    .app-header {
+      background: linear-gradient(180deg, #071120 0%, #0d1f3c 100%);
+      border-bottom: 2px solid rgba(33, 137, 212, 0.3);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(13, 31, 60, 0.85);
+      border: 1.5px solid rgba(33, 137, 212, 0.2);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+    }
+    .card-dark {
+      background: rgba(7, 17, 32, 0.9);
+      border: 1.5px solid rgba(33, 137, 212, 0.15);
+      border-radius: 16px;
+    }
+
+    /* ── Upload zone ── */
+    #upload-zone {
+      border: 2.5px dashed rgba(33, 137, 212, 0.35);
+      border-radius: 16px;
+      background: rgba(7, 17, 32, 0.6);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    #upload-zone:hover, #upload-zone.drag-over {
+      border-color: #2589d4;
+      background: rgba(21, 101, 192, 0.08);
+    }
+    #upload-zone.has-image { border-style: solid; border-color: rgba(33, 137, 212, 0.5); }
+
+    /* ── Primary CTA button ── */
+    .btn-analyze {
+      background: linear-gradient(135deg, #1565c0 0%, #1e88e5 50%, #0d47a1 100%);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      padding: 18px 24px;
+      width: 100%;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 6px 24px rgba(21, 101, 192, 0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-analyze:active { transform: scale(0.98); box-shadow: 0 2px 12px rgba(21, 101, 192, 0.4); }
+    .btn-analyze:disabled {
+      background: linear-gradient(135deg, #1e3f7a, #163060);
+      cursor: not-allowed;
+      opacity: 0.7;
+      box-shadow: none;
+    }
+    .btn-analyze::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+    }
+
+    /* ── GPS button ── */
+    .btn-gps {
+      background: rgba(13, 31, 60, 0.9);
+      border: 1.5px solid rgba(33, 137, 212, 0.4);
+      border-radius: 12px;
+      color: #90caf9;
+      font-weight: 600;
+      padding: 14px 16px;
+      width: 100%;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+    .btn-gps:hover { border-color: #2589d4; color: #e0f2fe; background: rgba(21, 101, 192, 0.12); }
+    .btn-gps.active { border-color: #22c55e; color: #22c55e; background: rgba(22, 163, 74, 0.08); }
+
+    /* ── Weather metric tiles ── */
+    .wx-tile {
+      background: rgba(7, 17, 32, 0.8);
+      border: 1.5px solid rgba(33, 137, 212, 0.15);
+      border-radius: 12px;
+      padding: 14px 12px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .wx-tile:hover { border-color: rgba(33, 137, 212, 0.35); }
+    .wx-value { font-size: 1.4rem; font-weight: 800; color: white; line-height: 1.1; }
+    .wx-label { font-size: 0.72rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+    .wx-sub   { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+
+    /* ── Verdict badges ── */
+    .verdict-safe    { background: #052e16; border: 2px solid #16a34a; color: #22c55e; }
+    .verdict-caution { background: #431407; border: 2px solid #d97706; color: #f59e0b; }
+    .verdict-danger  { background: #450a0a; border: 2px solid #dc2626; color: #ef4444; }
+
+    /* ── Report markdown ── */
+    .report-body h3 {
+      font-size: 1rem; font-weight: 700; color: #38bdf8;
+      margin: 1.5rem 0 0.6rem; padding-bottom: 0.4rem;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .report-body h3:first-child { margin-top: 0; }
+    .report-body h4 { font-size: 0.875rem; font-weight: 600; color: #bae6fd; margin: 0.75rem 0 0.25rem; }
+    .report-body p  { color: #cbd5e1; line-height: 1.75; margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .report-body ul { list-style: none; padding: 0; margin: 0.5rem 0; }
+    .report-body ul li {
+      position: relative; padding-left: 1.4rem;
+      color: #94a3b8; font-size: 0.9rem; line-height: 1.65;
+      margin-bottom: 0.3rem;
+    }
+    .report-body ul li::before { content: '▸'; position: absolute; left: 0; color: #2589d4; }
+    .report-body strong { color: #e2e8f0; font-weight: 700; }
+
+    /* ── Shimmer skeleton ── */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position:  400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(21,101,192,0.07) 25%, rgba(21,101,192,0.15) 50%, rgba(21,101,192,0.07) 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.8s infinite linear;
+      border-radius: 8px;
+    }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(33, 137, 212, 0.2);
+      border-top-color: #2589d4;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Progress bar ── */
+    @keyframes progress-fill {
+      0%  { width: 0%; }
+      20% { width: 25%; }
+      50% { width: 55%; }
+      80% { width: 82%; }
+      100%{ width: 94%; }
+    }
+    .progress-fill { animation: progress-fill 15s ease-out forwards; }
+
+    /* ── Pulse dot ── */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+    .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+    /* ── Fade in up ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.5s ease-out forwards; }
+
+    /* ── Select ── */
+    select { appearance: none; -webkit-appearance: none; }
+    select option { background: #0d1f3c; }
+
+    /* ── Language Selector ── */
+    .lang-selector-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .lang-selector-wrap::before {
+      content: '🌐';
+      position: absolute;
+      left: 10px;
+      font-size: 1rem;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #language-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(13, 31, 60, 0.92);
+      border: 1.5px solid rgba(33, 137, 212, 0.45);
+      border-radius: 12px;
+      color: #90caf9;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 8px 28px 8px 34px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 38px;
+      letter-spacing: 0.02em;
+    }
+    #language-select:hover, #language-select:focus {
+      border-color: #2589d4;
+      color: #e0f2fe;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(33,137,212,0.2);
+    }
+    .lang-selector-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 9px;
+      font-size: 0.7rem;
+      color: #475569;
+      pointer-events: none;
+    }
+    /* ── Live data badge on wx tiles ── */
+    .live-badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #22c55e;
+      background: rgba(22,163,74,0.12);
+      border: 1px solid rgba(22,163,74,0.35);
+      border-radius: 6px;
+      padding: 1px 5px;
+      margin-top: 4px;
+    }
+    /* ── Language banner ── */
+    #lang-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(21,101,192,0.12);
+      border: 1.5px solid rgba(33,137,212,0.25);
+      color: #7dd3fc;
+      margin-bottom: 4px;
+      animation: fadeUp 0.35s ease-out;
+    }
+    #lang-banner.visible { display: flex; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #0a1628; }
+    ::-webkit-scrollbar-thumb { background: #1565c0; border-radius: 4px; }
+
+    /* ── Touch targets (min 48px height for outdoor use) ── */
+    button, select, input { min-height: 48px; }
+
+    /* ── Large text readability ── */
+    @media (max-width: 380px) {
+      .wx-value { font-size: 1.2rem; }
+      .btn-analyze { font-size: 1rem; padding: 16px 20px; }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+  <header class="app-header px-4 py-3">
+    <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+             style="background: linear-gradient(135deg,#1565c0,#0d47a1); box-shadow: 0 4px 12px rgba(21,101,192,0.5);">
+          🎣
+        </div>
+        <div>
+          <h1 class="text-lg font-black text-white leading-tight tracking-tight">
+            AquaCatch <span style="color:#38bdf8;">AI</span>
+          </h1>
+          <p id="header-subtitle" class="text-xs font-medium" style="color:#64748b;">Water Quality &amp; Fishing Safety</p>
+        </div>
+      </div>
+      <!-- Right side: Live pill + Language selector -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- Live indicator -->
+        <div id="live-pill" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+             style="background:rgba(22,163,74,0.12); border:1.5px solid rgba(22,163,74,0.4); color:#22c55e;">
+          <span class="pulse-dot w-2 h-2 rounded-full inline-block" style="background:#22c55e;"></span>
+          <span id="live-pill-text">LIVE</span>
+        </div>
+        <!-- Language selector -->
+        <div class="lang-selector-wrap">
+          <select id="language-select" title="Select language" onchange="applyLanguage(this.value)">
+            <option value="English">English</option>
+            <option value="Kannada">ಕನ್ನಡ</option>
+            <option value="Hindi">हिन्दी</option>
+            <option value="Tamil">தமிழ்</option>
+            <option value="Telugu">తెలుగు</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+  <main class="max-w-lg mx-auto px-4 py-5 space-y-4 pb-20">
+
+    <!-- ── TELEMETRY CARD ── -->
+    <section id="telemetry-card" class="card p-4">
+
+      <!-- Loading state -->
+      <div id="wx-loading" class="space-y-3">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
+          <span id="wx-detecting-label" class="text-sm font-medium" style="color:#64748b;">Detecting your location…</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="skeleton h-20 rounded-xl"></div>
+          <div class="skeleton h-20 rounded-xl"></div>
+          <div class="skeleton h-20 rounded-xl"></div>
+        </div>
+      </div>
+
+      <!-- Loaded state -->
+      <div id="wx-loaded" class="hidden">
+        <!-- Location row -->
+        <div class="flex items-start justify-between gap-2 mb-3">
+          <div class="flex items-start gap-2 min-w-0">
+            <span class="text-xl flex-shrink-0 mt-0.5">📍</span>
+            <div class="min-w-0">
+              <p id="loc-city" class="text-base font-bold text-white leading-tight truncate">—</p>
+              <p id="loc-coords" class="text-xs font-mono mt-0.5" style="color:#475569;">—</p>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-1 flex-shrink-0">
+            <span id="loc-source-pill" class="text-2xs px-2 py-0.5 rounded-full font-bold" style="background:rgba(33,137,212,0.12);border:1px solid rgba(33,137,212,0.3);color:#38bdf8;">GPS</span>
+            <span id="wx-time" class="text-2xs" style="color:#475569;">—</span>
+          </div>
+        </div>
+
+        <!-- Weather tiles -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="wx-tile">
+            <div class="text-xl mb-1">🌡️</div>
+            <div class="wx-value" id="wx-temp">—</div>
+            <div class="wx-label">Temp</div>
+            <div class="wx-sub" id="wx-feels">—</div>
+          </div>
+          <div class="wx-tile">
+            <div class="text-xl mb-1" id="wx-cond-icon">🌤️</div>
+            <div class="wx-value" id="wx-rain">—</div>
+            <div class="wx-label">Rainfall</div>
+            <div class="wx-sub" id="wx-cond">—</div>
+          </div>
+          <div class="wx-tile">
+            <div class="text-xl mb-1">💨</div>
+            <div class="wx-value" id="wx-wind">—</div>
+            <div class="wx-label">Wind</div>
+            <div class="wx-sub" id="wx-humid">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error state -->
+      <div id="wx-error" class="hidden rounded-xl p-3 flex items-start gap-3"
+           style="background:rgba(69,10,10,0.4);border:1.5px solid rgba(153,27,27,0.4);">
+        <span class="text-xl flex-shrink-0">⚠️</span>
+        <div>
+          <p class="text-sm font-bold" style="color:#ef4444;">Location Unavailable</p>
+          <p id="wx-error-msg" class="text-xs mt-0.5" style="color:#94a3b8;">Using default coords. Analysis will still work.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── UPLOAD + FORM CARD ── -->
+    <section class="card p-4 space-y-4">
+      <h2 class="text-base font-bold text-white flex items-center gap-2">
+        <span class="text-xl">📷</span> Upload Water / Catch Photo
+      </h2>
+
+      <!-- Upload zone -->
+      <div id="upload-zone"
+        ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+        onclick="document.getElementById('file-input').click()">
+
+        <!-- Placeholder -->
+        <div id="upload-placeholder" class="py-10 px-4 text-center">
+          <div class="text-5xl mb-3">🌊</div>
+          <p id="upload-placeholder-title" class="text-base font-bold text-white mb-1">Tap to Take Photo</p>
+          <p id="upload-placeholder-sub" class="text-sm" style="color:#475569;">or drag &amp; drop · JPG, PNG, WEBP · Max 16MB</p>
+          <p id="upload-placeholder-cam" class="text-xs mt-2 font-medium" style="color:#1565c0;">📱 On mobile, opens camera directly</p>
+        </div>
+
+        <!-- Preview -->
+        <div id="upload-preview" class="hidden relative">
+          <img id="preview-img" src="" alt="Preview" class="w-full rounded-2xl object-cover" style="max-height:260px;" />
+          <div class="absolute inset-0 rounded-2xl flex items-end p-3"
+               style="background:linear-gradient(to top, rgba(7,17,32,0.85) 0%, transparent 55%);">
+            <div class="flex items-center justify-between w-full">
+              <div class="min-w-0">
+                <p id="file-name-lbl" class="text-sm font-bold text-white truncate max-w-[200px]">photo.jpg</p>
+                <p id="file-size-lbl" class="text-xs" style="color:#94a3b8;">—</p>
+              </div>
+              <button type="button" onclick="clearImage(event)"
+                class="w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold flex-shrink-0"
+                style="background:rgba(69,10,10,0.8);border:1.5px solid rgba(153,27,27,0.5);color:#ef4444;">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden file input — accept all image types, capture=environment for mobile rear camera -->
+        <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden"
+               onchange="handleFileSelect(event)" />
+      </div>
+
+      <!-- Language active banner (shown when non-English) -->
+      <div id="lang-banner">
+        <span id="lang-banner-icon">🌐</span>
+        <span id="lang-banner-text">Report will be generated in English</span>
+      </div>
+
+      <!-- Water type select -->
+      <div>
+        <label id="water-type-label" class="block text-sm font-bold text-white mb-2">Water Body Type</label>
+        <div class="relative">
+          <select id="water-type"
+            class="w-full rounded-xl px-4 pr-10 text-base font-medium text-white cursor-pointer focus:outline-none"
+            style="background:rgba(7,17,32,0.9);border:1.5px solid rgba(33,137,212,0.3);padding-top:14px;padding-bottom:14px;"
+            aria-label="Select water body type">
+            <option value="General Coastal Water Body">🌊 General Coastal Spot</option>
+            <option value="River or Freshwater Stream">🏞️ River / Stream</option>
+            <option value="Lake or Reservoir">🏔️ Lake / Reservoir</option>
+            <option value="Sea or Ocean Nearshore">🌍 Sea / Ocean</option>
+            <option value="Estuary or River Mouth">🐟 Estuary / River Mouth</option>
+            <option value="Brackish Mangrove Creek">🌿 Mangrove Creek</option>
+            <option value="Tidal Flat or Mudflat">🪸 Tidal Flat</option>
+            <option value="Fish Pond or Aquaculture">🐠 Fish Pond</option>
+            <option value="Post-catch Fish Health Evaluation">🐡 Fish Health Check</option>
+          </select>
+          <span class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs" style="color:#475569;" aria-hidden="true">▼</span>
+        </div>
+      </div>
+
+      <!-- GPS override -->
+      <button type="button" id="gps-btn" onclick="requestGPS()" class="btn-gps flex items-center justify-center gap-2">
+        <span class="text-lg" aria-hidden="true">📡</span>
+        <span id="gps-label">Use Precise GPS Location</span>
+      </button>
+      <input type="hidden" id="lat-val" />
+      <input type="hidden" id="lon-val" />
+
+      <!-- ANALYZE button -->
+      <button id="analyze-btn" onclick="submitAnalysis()" class="btn-analyze flex items-center justify-center gap-3">
+        <span class="text-xl" id="analyze-icon" aria-hidden="true">🔍</span>
+        <span id="analyze-label">Analyze Water &amp; Safety</span>
+      </button>
+    </section>
+
+    <!-- ── LOADING STATE ── -->
+    <section id="loading-section" class="hidden card p-5 fade-up">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="spinner"></div>
+        <div>
+          <p id="loading-title" class="text-base font-bold text-white">Analyzing with Gemini AI…</p>
+          <p id="loading-msg" class="text-sm mt-0.5" style="color:#64748b;">Fetching live weather data…</p>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="h-2 rounded-full overflow-hidden mb-4" style="background:rgba(21,101,192,0.15);">
+        <div class="h-full rounded-full progress-fill" style="background:linear-gradient(90deg,#1565c0,#38bdf8);"></div>
+      </div>
+
+      <!-- Steps -->
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div id="step-wx" class="rounded-xl p-3 transition-all duration-500" style="border:1.5px solid rgba(33,137,212,0.15);">
+          <div class="text-xl mb-1">🛰️</div>
+          <p id="step-wx-label" class="text-xs font-semibold" style="color:#475569;">Live Weather</p>
+        </div>
+        <div id="step-ai" class="rounded-xl p-3 transition-all duration-500" style="border:1.5px solid rgba(33,137,212,0.15);">
+          <div class="text-xl mb-1">🤖</div>
+          <p id="step-ai-label" class="text-xs font-semibold" style="color:#475569;">AI Vision</p>
+        </div>
+        <div id="step-rep" class="rounded-xl p-3 transition-all duration-500" style="border:1.5px solid rgba(33,137,212,0.15);">
+          <div class="text-xl mb-1">📋</div>
+          <p id="step-rep-label" class="text-xs font-semibold" style="color:#475569;">Report</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── RESULTS ── -->
+    <section id="results-section" class="hidden space-y-4 fade-up">
+
+      <!-- Verdict banner -->
+      <div id="verdict-banner" class="rounded-2xl p-5 text-center">
+        <div id="verdict-emoji" class="text-6xl mb-3"></div>
+        <div id="verdict-text" class="text-2xl font-black tracking-wide mb-2"></div>
+        <p id="verdict-location" class="text-sm font-medium mb-1" style="color:#94a3b8;"></p>
+        <p id="verdict-time" class="text-xs" style="color:#64748b;"></p>
+      </div>
+
+      <!-- Report card -->
+      <div class="card overflow-hidden">
+        <div class="px-4 py-3 flex items-center justify-between"
+             style="border-bottom:1.5px solid rgba(33,137,212,0.15);">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span class="text-base">📋</span> Advisory Report
+          </h3>
+          <button onclick="copyReport()" class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style="background:rgba(21,101,192,0.15);border:1px solid rgba(33,137,212,0.3);color:#38bdf8;">
+            Copy 📋
+          </button>
+        </div>
+        <div id="report-content" class="report-body px-4 py-4"></div>
+      </div>
+
+      <!-- New analysis button -->
+      <button onclick="resetAll()"
+        class="w-full py-4 rounded-2xl text-base font-bold transition-all"
+        style="background:rgba(13,31,60,0.9);border:1.5px solid rgba(33,137,212,0.3);color:#38bdf8;">
+        🔄 &nbsp;Analyze Another Photo
+      </button>
+    </section>
+
+    <!-- ── ERROR ── -->
+    <section id="error-section" class="hidden card p-5 fade-up"
+             style="border-color:rgba(153,27,27,0.4);background:rgba(69,10,10,0.3);">
+      <div class="flex items-start gap-4">
+        <span class="text-3xl flex-shrink-0">⚠️</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-lg font-black" style="color:#ef4444;">Analysis Failed</p>
+          <p id="error-msg" class="text-sm mt-1 leading-relaxed" style="color:#94a3b8;"></p>
+          <button onclick="resetAll()"
+            class="mt-4 px-5 py-3 rounded-xl text-sm font-bold transition-all"
+            style="background:rgba(153,27,27,0.2);border:1.5px solid rgba(153,27,27,0.5);color:#ef4444;">
+            Try Again
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="text-center py-4 px-4" style="color:#1e3f7a;">
+    <p class="text-xs">AquaCatch AI · Powered by Gemini Vision + Open-Meteo · Hackathon Edition</p>
+  </footer>
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════ SCRIPT ═══════════════════════════ -->
+<script>
+  /* ── State ── */
+  let telemetry   = null;
+  let selectedFile= null;
+  let busy        = false;
+  let currentLang = 'English';
+
+  /* ──────────────────────────────────────────────────────────────
+     MULTILINGUAL TRANSLATIONS
+  ────────────────────────────────────────────────────────────── */
+  const LANG = {
+    English: {
+      subtitle:        'Water Quality & Fishing Safety',
+      live:            'LIVE',
+      detecting:       'Detecting your location…',
+      locUnavail:      'Location Unavailable',
+      locFallback:     'Using default coords. Analysis will still work.',
+      uploadTitle:     '📷 Upload Water / Catch Photo',
+      tapPhoto:        'Tap to Take Photo',
+      dragDrop:        'or drag & drop · JPG, PNG, WEBP · Max 16MB',
+      mobileCamera:    '📱 On mobile, opens camera directly',
+      waterTypeLabel:  'Water Body Type',
+      gpsBtn:          'Use Precise GPS Location',
+      gpsLocating:     'Locating…',
+      gpsDenied:       'GPS Unavailable — using IP location',
+      analyzeBtn:      'Analyze Water & Safety',
+      analyzingBtn:    'Analyzing…',
+      loadingTitle:    'Analyzing with Gemini AI…',
+      loadingMsg1:     'Fetching live weather data…',
+      loadingMsg2:     'Sending image to Gemini AI…',
+      loadingMsg3:     'Generating safety report…',
+      stepWx:          'Live Weather',
+      stepAi:          'AI Vision',
+      stepRep:         'Report',
+      reportTitle:     '📋 Advisory Report',
+      copyBtn:         'Copy 📋',
+      newAnalysis:     '🔄  Analyze Another Photo',
+      analysisFailed:  'Analysis Failed',
+      tryAgain:        'Try Again',
+      toastCopied:     'Report copied!',
+      toastCopyFail:   'Could not copy — select text manually.',
+      toastGpsOk:      'GPS location locked!',
+      toastGpsDenied:  'GPS denied. Using IP location.',
+      toastNoFile:     'Please upload a photo first!',
+      toastDropErr:    'Please drop an image file.',
+      toastSizeErr:    'File too large (max 16MB).',
+      toastGpsNo:      'GPS not supported on this device.',
+      langBanner:      'Report will be generated in English',
+      analyzedAt:      'Analyzed:',
+      liveWeather:     'LIVE WEATHER',
+    },
+    Kannada: {
+      subtitle:        'ನೀರಿನ ಗುಣಮಟ್ಟ & ಮೀನುಗಾರಿಕೆ ಸುರಕ್ಷತೆ',
+      live:            'ನೇರ',
+      detecting:       'ನಿಮ್ಮ ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ…',
+      locUnavail:      'ಸ್ಥಳ ಲಭ್ಯವಿಲ್ಲ',
+      locFallback:     'ಡಿಫಾಲ್ಟ್ ನಿರ್ದೇಶಾಂಕ ಬಳಸಲಾಗುತ್ತಿದೆ. ವಿಶ್ಲೇಷಣೆ ನಡೆಯುತ್ತದೆ.',
+      uploadTitle:     '📷 ನೀರು / ಮೀನಿನ ಫೋಟೋ ಅಪ್ಲೋಡ್ ಮಾಡಿ',
+      tapPhoto:        'ಫೋಟೋ ತೆಗೆಯಲು ಟ್ಯಾಪ್ ಮಾಡಿ',
+      dragDrop:        'ಅಥವಾ ಡ್ರಾಗ್ & ಡ್ರಾಪ್ · JPG, PNG, WEBP · ಗರಿಷ್ಠ 16MB',
+      mobileCamera:    '📱 ಮೊಬೈಲ್‌ನಲ್ಲಿ, ನೇರ ಕ್ಯಾಮೆರಾ ತೆರೆಯುತ್ತದೆ',
+      waterTypeLabel:  'ನೀರಿನ ಮೂಲ ಪ್ರಕಾರ',
+      gpsBtn:          'ನಿಖರ GPS ಸ್ಥಳ ಬಳಸಿ',
+      gpsLocating:     'ಸ್ಥಳ ಪತ್ತೆ ಮಾಡಲಾಗುತ್ತಿದೆ…',
+      gpsDenied:       'GPS ಲಭ್ಯವಿಲ್ಲ — IP ಸ್ಥಳ ಬಳಸಲಾಗುತ್ತಿದೆ',
+      analyzeBtn:      'ನೀರು & ಸುರಕ್ಷತೆ ವಿಶ್ಲೇಷಿಸಿ',
+      analyzingBtn:    'ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ…',
+      loadingTitle:    'Gemini AI ಜೊತೆ ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ…',
+      loadingMsg1:     'ನೇರ ಹವಾಮಾನ ಡೇಟಾ ಪಡೆಯಲಾಗುತ್ತಿದೆ…',
+      loadingMsg2:     'Gemini AI ಗೆ ಚಿತ್ರ ಕಳಿಸಲಾಗುತ್ತಿದೆ…',
+      loadingMsg3:     'ಸುರಕ್ಷತಾ ವರದಿ ತಯಾರಿಸಲಾಗುತ್ತಿದೆ…',
+      stepWx:          'ನೇರ ಹವಾಮಾನ',
+      stepAi:          'AI ದೃಷ್ಟಿ',
+      stepRep:         'ವರದಿ',
+      reportTitle:     '📋 ಸಲಹಾ ವರದಿ',
+      copyBtn:         'ನಕಲಿಸಿ 📋',
+      newAnalysis:     '🔄  ಇನ್ನೊಂದು ಫೋಟೋ ವಿಶ್ಲೇಷಿಸಿ',
+      analysisFailed:  'ವಿಶ್ಲೇಷಣೆ ವಿಫಲವಾಯಿತು',
+      tryAgain:        'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
+      toastCopied:     'ವರದಿ ನಕಲಿಸಲಾಗಿದೆ!',
+      toastCopyFail:   'ನಕಲಿಸಲಾಗಲಿಲ್ಲ — ಪಠ್ಯ ಕೈಯಾರೆ ಆಯ್ಕೆ ಮಾಡಿ.',
+      toastGpsOk:      'GPS ಸ್ಥಳ ಖಚಿತವಾಗಿದೆ!',
+      toastGpsDenied:  'GPS ನಿರಾಕರಿಸಲಾಯಿತು. IP ಸ್ಥಳ ಬಳಸಲಾಗುತ್ತಿದೆ.',
+      toastNoFile:     'ದಯವಿಟ್ಟು ಮೊದಲು ಫೋಟೋ ಅಪ್ಲೋಡ್ ಮಾಡಿ!',
+      toastDropErr:    'ದಯವಿಟ್ಟು ಚಿತ್ರ ಫೈಲ್ ಡ್ರಾಪ್ ಮಾಡಿ.',
+      toastSizeErr:    'ಫೈಲ್ ತುಂಬಾ ದೊಡ್ಡದು (ಗರಿಷ್ಠ 16MB).',
+      toastGpsNo:      'ಈ ಸಾಧನದಲ್ಲಿ GPS ಬೆಂಬಲಿಸಲ್ಪಡುವುದಿಲ್ಲ.',
+      langBanner:      'ವರದಿ ಕನ್ನಡದಲ್ಲಿ ರಚಿಸಲಾಗುತ್ತದೆ',
+      analyzedAt:      'ವಿಶ್ಲೇಷಿಸಿದ ಸಮಯ:',
+      liveWeather:     'ನೇರ ಹವಾಮಾನ',
+    },
+    Hindi: {
+      subtitle:        'जल गुणवत्ता & मत्स्य सुरक्षा',
+      live:            'लाइव',
+      detecting:       'आपका स्थान ढूंढा जा रहा है…',
+      locUnavail:      'स्थान अनुपलब्ध',
+      locFallback:     'डिफ़ॉल्ट निर्देशांक उपयोग हो रहे हैं। विश्लेषण जारी रहेगा।',
+      uploadTitle:     '📷 पानी / मछली की फ़ोटो अपलोड करें',
+      tapPhoto:        'फ़ोटो लेने के लिए टैप करें',
+      dragDrop:        'या ड्रैग & ड्रॉप करें · JPG, PNG, WEBP · अधिकतम 16MB',
+      mobileCamera:    '📱 मोबाइल पर, सीधे कैमरा खुलता है',
+      waterTypeLabel:  'जल निकाय प्रकार',
+      gpsBtn:          'सटीक GPS स्थान उपयोग करें',
+      gpsLocating:     'स्थान ढूंढा जा रहा है…',
+      gpsDenied:       'GPS अनुपलब्ध — IP स्थान उपयोग हो रहा है',
+      analyzeBtn:      'पानी & सुरक्षा का विश्लेषण करें',
+      analyzingBtn:    'विश्लेषण हो रहा है…',
+      loadingTitle:    'Gemini AI से विश्लेषण हो रहा है…',
+      loadingMsg1:     'लाइव मौसम डेटा प्राप्त हो रहा है…',
+      loadingMsg2:     'Gemini AI को छवि भेजी जा रही है…',
+      loadingMsg3:     'सुरक्षा रिपोर्ट तैयार हो रही है…',
+      stepWx:          'लाइव मौसम',
+      stepAi:          'AI दृष्टि',
+      stepRep:         'रिपोर्ट',
+      reportTitle:     '📋 सलाह रिपोर्ट',
+      copyBtn:         'कॉपी करें 📋',
+      newAnalysis:     '🔄  दूसरी फ़ोटो का विश्लेषण करें',
+      analysisFailed:  'विश्लेषण विफल',
+      tryAgain:        'फिर कोशिश करें',
+      toastCopied:     'रिपोर्ट कॉपी हो गई!',
+      toastCopyFail:   'कॉपी नहीं हो सका — टेक्स्ट मैन्युअल चुनें।',
+      toastGpsOk:      'GPS स्थान लॉक हो गया!',
+      toastGpsDenied:  'GPS अस्वीकार। IP स्थान उपयोग हो रहा है।',
+      toastNoFile:     'कृपया पहले फ़ोटो अपलोड करें!',
+      toastDropErr:    'कृपया एक छवि फ़ाइल ड्रॉप करें।',
+      toastSizeErr:    'फ़ाइल बहुत बड़ी है (अधिकतम 16MB)।',
+      toastGpsNo:      'इस डिवाइस पर GPS समर्थित नहीं है।',
+      langBanner:      'रिपोर्ट हिन्दी में तैयार की जाएगी',
+      analyzedAt:      'विश्लेषण समय:',
+      liveWeather:     'लाइव मौसम',
+    },
+    Tamil: {
+      subtitle:        'நீர் தரம் & மீன்பிடி பாதுகாப்பு',
+      live:            'நேரடி',
+      detecting:       'உங்கள் இருப்பிடம் கண்டறியப்படுகிறது…',
+      locUnavail:      'இருப்பிடம் கிடைக்கவில்லை',
+      locFallback:     'இயல்புநிலை ஆயத்தொலைவுகள் பயன்படுத்தப்படுகின்றன.',
+      uploadTitle:     '📷 நீர் / மீன் படத்தை பதிவேற்றவும்',
+      tapPhoto:        'புகைப்படம் எடுக்க தட்டவும்',
+      dragDrop:        'அல்லது இழுத்து விடவும் · JPG, PNG, WEBP · அதிகபட்சம் 16MB',
+      mobileCamera:    '📱 மொபைலில், நேரடியாக கேமரா திறக்கும்',
+      waterTypeLabel:  'நீர்நிலை வகை',
+      gpsBtn:          'துல்லியமான GPS இருப்பிடத்தை பயன்படுத்தவும்',
+      gpsLocating:     'இருப்பிடம் கண்டறியப்படுகிறது…',
+      gpsDenied:       'GPS கிடைக்கவில்லை — IP இருப்பிடம் பயன்படுத்தப்படுகிறது',
+      analyzeBtn:      'நீர் & பாதுகாப்பை பகுப்பாய்வு செய்யவும்',
+      analyzingBtn:    'பகுப்பாய்வு செய்யப்படுகிறது…',
+      loadingTitle:    'Gemini AI மூலம் பகுப்பாய்வு செய்யப்படுகிறது…',
+      loadingMsg1:     'நேரடி வானிலை தரவு பெறப்படுகிறது…',
+      loadingMsg2:     'Gemini AI க்கு படம் அனுப்பப்படுகிறது…',
+      loadingMsg3:     'பாதுகாப்பு அறிக்கை தயாரிக்கப்படுகிறது…',
+      stepWx:          'நேரடி வானிலை',
+      stepAi:          'AI பார்வை',
+      stepRep:         'அறிக்கை',
+      reportTitle:     '📋 ஆலோசனை அறிக்கை',
+      copyBtn:         'நகலெடுக்கவும் 📋',
+      newAnalysis:     '🔄  மற்றொரு படத்தை பகுப்பாய்வு செய்யவும்',
+      analysisFailed:  'பகுப்பாய்வு தோல்வியடைந்தது',
+      tryAgain:        'மீண்டும் முயற்சிக்கவும்',
+      toastCopied:     'அறிக்கை நகலெடுக்கப்பட்டது!',
+      toastCopyFail:   'நகலெடுக்க முடியவில்லை — உரையை கையாக தேர்ந்தெடுக்கவும்.',
+      toastGpsOk:      'GPS இருப்பிடம் பூட்டப்பட்டது!',
+      toastGpsDenied:  'GPS மறுக்கப்பட்டது. IP இருப்பிடம் பயன்படுத்தப்படுகிறது.',
+      toastNoFile:     'முதலில் படத்தை பதிவேற்றவும்!',
+      toastDropErr:    'படக் கோப்பை கைவிடவும்.',
+      toastSizeErr:    'கோப்பு மிகவும் பெரியது (அதிகபட்சம் 16MB).',
+      toastGpsNo:      'இந்த சாதனத்தில் GPS ஆதரிக்கப்படவில்லை.',
+      langBanner:      'அறிக்கை தமிழில் தயாரிக்கப்படும்',
+      analyzedAt:      'பகுப்பாய்வு நேரம்:',
+      liveWeather:     'நேரடி வானிலை',
+    },
+    Telugu: {
+      subtitle:        'నీటి నాణ్యత & మత్స్య భద్రత',
+      live:            'లైవ్',
+      detecting:       'మీ స్థానాన్ని గుర్తిస్తున్నాం…',
+      locUnavail:      'స్థానం అందుబాటులో లేదు',
+      locFallback:     'డిఫాల్ట్ కోఆర్డినేట్లు వాడబడుతున్నాయి.',
+      uploadTitle:     '📷 నీరు / చేపల ఫోటో అప్లోడ్ చేయండి',
+      tapPhoto:        'ఫోటో తీయడానికి ట్యాప్ చేయండి',
+      dragDrop:        'లేదా డ్రాగ్ & డ్రాప్ · JPG, PNG, WEBP · గరిష్ఠం 16MB',
+      mobileCamera:    '📱 మొబైల్‌లో, నేరుగా కెమెరా తెరుచుకుంటుంది',
+      waterTypeLabel:  'నీటి వనరు రకం',
+      gpsBtn:          'ఖచ్చితమైన GPS స్థానం వాడండి',
+      gpsLocating:     'స్థానాన్ని గుర్తిస్తున్నాం…',
+      gpsDenied:       'GPS అందుబాటులో లేదు — IP స్థానం వాడబడుతోంది',
+      analyzeBtn:      'నీరు & భద్రత విశ్లేషించండి',
+      analyzingBtn:    'విశ్లేషిస్తున్నాం…',
+      loadingTitle:    'Gemini AI తో విశ్లేషిస్తున్నాం…',
+      loadingMsg1:     'లైవ్ వాతావరణ డేటా తీసుకుంటున్నాం…',
+      loadingMsg2:     'Gemini AI కి చిత్రం పంపుతున్నాం…',
+      loadingMsg3:     'భద్రతా నివేదిక తయారు చేస్తున్నాం…',
+      stepWx:          'లైవ్ వాతావరణం',
+      stepAi:          'AI దృష్టి',
+      stepRep:         'నివేదిక',
+      reportTitle:     '📋 సలహా నివేదిక',
+      copyBtn:         'కాపీ చేయండి 📋',
+      newAnalysis:     '🔄  మరో ఫోటో విశ్లేషించండి',
+      analysisFailed:  'విశ్లేషణ విఫలమైంది',
+      tryAgain:        'మళ్ళీ ప్రయత్నించండి',
+      toastCopied:     'నివేదిక కాపీ అయింది!',
+      toastCopyFail:   'కాపీ చేయలేకపోయాం — టెక్స్ట్ చేత్తో ఎంచుకోండి.',
+      toastGpsOk:      'GPS స్థానం లాక్ అయింది!',
+      toastGpsDenied:  'GPS తిరస్కరించబడింది. IP స్థానం వాడబడుతోంది.',
+      toastNoFile:     'దయచేసి ముందు ఫోటో అప్లోడ్ చేయండి!',
+      toastDropErr:    'దయచేసి చిత్రం ఫైల్ డ్రాప్ చేయండి.',
+      toastSizeErr:    'ఫైల్ చాలా పెద్దది (గరిష్ఠం 16MB).',
+      toastGpsNo:      'ఈ పరికరంలో GPS మద్దతు లేదు.',
+      langBanner:      'నివేదిక తెలుగులో తయారు చేయబడుతుంది',
+      analyzedAt:      'విశ్లేషించిన సమయం:',
+      liveWeather:     'లైవ్ వాతావరణం',
+    }
+  };
+
+  function t(key) {
+    return (LANG[currentLang] || LANG.English)[key] || (LANG.English)[key] || key;
+  }
+
+  function applyLanguage(lang) {
+    currentLang = lang || 'English';
+    const L = LANG[currentLang] || LANG.English;
+
+    // Header
+    setText('header-subtitle', L.subtitle);
+    setText('live-pill-text',  L.live);
+
+    // Detecting state
+    const detectEl = document.querySelector('#wx-loading span.text-sm');
+    if (detectEl) detectEl.textContent = L.detecting;
+
+    // Location unavail
+    const locUnavailTitle = document.querySelector('#wx-error p.text-sm');
+    if (locUnavailTitle) locUnavailTitle.textContent = L.locUnavail;
+    const locFallbackEl = document.getElementById('wx-error-msg');
+    if (locFallbackEl && !locFallbackEl.dataset.custom) locFallbackEl.textContent = L.locFallback;
+
+    // Upload section
+    const uploadTitle = document.querySelector('#app section.card h2');
+    if (uploadTitle) uploadTitle.innerHTML = L.uploadTitle;
+    setText('upload-placeholder-title', L.tapPhoto);
+    setText('upload-placeholder-sub',   L.dragDrop);
+    setText('upload-placeholder-cam',   L.mobileCamera);
+    setText('water-type-label', L.waterTypeLabel);
+
+    // GPS button (only if not already GPS locked)
+    const gpsLabel = document.getElementById('gps-label');
+    if (gpsLabel && !document.getElementById('gps-btn').classList.contains('active')) {
+      gpsLabel.textContent = L.gpsBtn;
+    }
+
+    // Analyze button (only if not busy)
+    if (!busy) {
+      setText('analyze-label', L.analyzeBtn);
+    }
+
+    // Loading section
+    setText('loading-title', L.loadingTitle);
+    setText('step-wx-label', L.stepWx);
+    setText('step-ai-label', L.stepAi);
+    setText('step-rep-label', L.stepRep);
+
+    // Results section labels
+    const reportTitleEl = document.querySelector('#app .card h3');
+    if (reportTitleEl) reportTitleEl.innerHTML = L.reportTitle;
+    const copyBtnEl = document.querySelector('button[onclick="copyReport()"]');
+    if (copyBtnEl) copyBtnEl.textContent = L.copyBtn;
+    const newAnalysisBtn = document.querySelector('button[onclick="resetAll()"]');
+    if (newAnalysisBtn) newAnalysisBtn.textContent = L.newAnalysis;
+
+    // Language banner
+    const banner = document.getElementById('lang-banner');
+    if (banner) {
+      setText('lang-banner-text', L.langBanner);
+      if (lang === 'English') {
+        banner.classList.remove('visible');
+      } else {
+        banner.classList.add('visible');
+      }
+    }
+  }
+
+  /* ── On load ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    fetchTelemetry();
+    applyLanguage('English');
+  });
+
+  /* ─────────────────────────────────────────────────────────────
+     TELEMETRY
+  ───────────────────────────────────────────────────────────── */
+  async function fetchTelemetry(lat, lon) {
+    show('wx-loading'); hide('wx-loaded'); hide('wx-error');
+    let url = '/api/telemetry';
+    if (lat != null && lon != null) url += `?lat=${lat}&lon=${lon}`;
+    try {
+      const r    = await fetch(url);
+      const data = await r.json();
+      if (!data.success) throw new Error(data.error || 'Failed');
+      telemetry = data;
+      renderTelemetry(data);
+      hide('wx-loading'); show('wx-loaded');
+      show('live-pill');
+    } catch (e) {
+      hide('wx-loading'); show('wx-error');
+      setText('wx-error-msg', e.message || 'Could not load weather data.');
+    }
+  }
+
+  function renderTelemetry(d) {
+    const loc = d.location, wx = d.weather;
+    const city = [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
+    setText('loc-city',    city || 'Detected Location');
+    setText('loc-coords',  `${loc.lat}°N, ${loc.lon}°E`);
+    setText('wx-time',     d.timestamp || '');
+
+    const src = document.getElementById('loc-source-pill');
+    if (loc.source === 'device-gps') {
+      src.textContent = '📍 GPS';
+      src.style.color  = '#22c55e';
+      src.style.borderColor = 'rgba(22,163,74,0.4)';
+      src.style.background  = 'rgba(22,163,74,0.1)';
+    } else {
+      src.textContent = '🌐 IP';
+    }
+
+    setText('wx-temp',   `${wx.temperature}°C`);
+    setText('wx-feels',  `Feels ${wx.apparent_temperature}°C`);
+    setText('wx-rain',   `${wx.precipitation}mm`);
+    setText('wx-cond',   wx.condition || 'Fair');
+    setText('wx-cond-icon', wx.icon || '🌤️');
+    setText('wx-wind',   `${wx.wind_speed}km/h`);
+    setText('wx-humid',  `Humidity ${wx.humidity}%`);
+
+    // Highlight rain tile red if heavy
+    const rainTile = document.querySelector('.wx-tile:nth-child(2)');
+    if (rainTile) {
+      if (wx.precipitation > 10) rainTile.style.borderColor = 'rgba(220,38,38,0.4)';
+      else if (wx.precipitation > 3) rainTile.style.borderColor = 'rgba(217,119,6,0.4)';
+      else rainTile.style.borderColor = 'rgba(22,163,74,0.3)';
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     GPS
+  ───────────────────────────────────────────────────────────── */
+  function requestGPS() {
+    if (!navigator.geolocation) { toast(t('toastGpsNo'), 'warn'); return; }
+    const btn = document.getElementById('gps-btn');
+    setText('gps-label', t('gpsLocating'));
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      document.getElementById('lat-val').value = lat;
+      document.getElementById('lon-val').value = lon;
+      setText('gps-label', `📍 GPS: ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`);
+      btn.disabled = false;
+      btn.classList.add('active');
+      fetchTelemetry(lat, lon);
+      toast(t('toastGpsOk'), 'safe');
+    }, () => {
+      setText('gps-label', t('gpsDenied'));
+      btn.disabled = false;
+      toast(t('toastGpsDenied'), 'warn');
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     FILE HANDLING
+  ───────────────────────────────────────────────────────────── */
+  function handleFileSelect(e) { setFile(e.target.files[0]); }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) setFile(f);
+    else toast(t('toastDropErr'), 'warn');
+  }
+  function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+  function handleDragLeave() { document.getElementById('upload-zone').classList.remove('drag-over'); }
+
+  function setFile(file) {
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) { toast(t('toastSizeErr'), 'warn'); return; }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('preview-img').src = e.target.result; };
+    reader.readAsDataURL(file);
+    setText('file-name-lbl', file.name);
+    setText('file-size-lbl', fmtBytes(file.size));
+    hide('upload-placeholder'); show('upload-preview');
+    document.getElementById('upload-zone').classList.add('has-image');
+  }
+
+  function clearImage(e) {
+    e.stopPropagation();
+    selectedFile = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('preview-img').src = '';
+    show('upload-placeholder'); hide('upload-preview');
+    document.getElementById('upload-zone').classList.remove('has-image');
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     ANALYSIS SUBMISSION
+  ───────────────────────────────────────────────────────────── */
+  async function submitAnalysis() {
+    if (busy) return;
+    if (!selectedFile) { toast(t('toastNoFile'), 'warn'); return; }
+
+    busy = true;
+    showLoading();
+
+    // Progress step animations
+    setTimeout(() => activateStep('step-wx'), 300);
+    setTimeout(() => { activateStep('step-ai'); setMsg(t('loadingMsg2')); }, 2500);
+    setTimeout(() => { activateStep('step-rep'); setMsg(t('loadingMsg3')); }, 9000);
+
+    const fd = new FormData();
+    fd.append('image',      selectedFile);
+    fd.append('water_type', document.getElementById('water-type').value);
+    fd.append('language',   currentLang);          // ← send chosen language
+    const lat = document.getElementById('lat-val').value;
+    const lon = document.getElementById('lon-val').value;
+    if (lat && lon) { fd.append('lat', lat); fd.append('lon', lon); }
+
+    try {
+      const r    = await fetch('/analyze', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      showResults(data);
+    } catch (e) {
+      showError(e.message || 'Unexpected error. Please try again.');
+    } finally {
+      busy = false;
+      resetBtn();
+    }
+  }
+
+  function showLoading() {
+    hide('results-section'); hide('error-section');
+    show('loading-section');
+    document.getElementById('loading-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMsg(t('loadingMsg1'));
+    setText('loading-title', t('loadingTitle'));
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    setText('analyze-icon',  '');
+    setText('analyze-label', t('analyzingBtn'));
+
+    // Restart progress bar
+    const bar = document.querySelector('.progress-fill');
+    if (bar) { bar.style.animation = 'none'; void bar.offsetHeight; bar.style.animation = ''; }
+  }
+
+  function resetBtn() {
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = false;
+    setText('analyze-icon',  '🔍');
+    setText('analyze-label', t('analyzeBtn'));
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RESULTS RENDERING
+  ───────────────────────────────────────────────────────────── */
+  function showResults(data) {
+    hide('loading-section');
+    show('results-section');
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const verdict = (data.verdict || 'CAUTION').toUpperCase();
+    const vmap = {
+      'SAFE':      { emoji: '✅', text: 'SAFE TO FISH',    cls: 'verdict-safe',    textColor: '#22c55e' },
+      'CAUTION':   { emoji: '⚠️', text: 'USE CAUTION',    cls: 'verdict-caution', textColor: '#f59e0b' },
+      'HIGH RISK': { emoji: '🚨', text: 'HIGH RISK',       cls: 'verdict-danger',  textColor: '#ef4444' },
+    };
+    const v = vmap[verdict] || vmap['CAUTION'];
+
+    const banner = document.getElementById('verdict-banner');
+    banner.className = `rounded-2xl p-5 text-center ${v.cls}`;
+    setText('verdict-emoji', v.emoji);
+    const vText = document.getElementById('verdict-text');
+    vText.textContent  = v.text;
+    vText.style.color  = v.textColor;
+
+    const loc = data.location || {};
+    const locStr = [loc.city, loc.region, loc.country].filter(Boolean).join(', ');
+    setText('verdict-location', locStr ? `📍 ${locStr}` : '');
+    setText('verdict-time', data.timestamp ? `${t('analyzedAt')} ${data.timestamp}` : '');
+
+    // Render markdown report
+    if (window.marked) {
+      marked.setOptions({ breaks: true, gfm: true });
+      document.getElementById('report-content').innerHTML = marked.parse(data.report || '');
+    } else {
+      document.getElementById('report-content').innerText = data.report || '';
+    }
+
+    // Re-apply language to result labels
+    applyLanguage(currentLang);
+  }
+
+  function showError(msg) {
+    hide('loading-section');
+    show('error-section');
+    setText('error-msg', msg);
+    // Translate error section labels
+    const failTitle = document.querySelector('#error-section p.text-lg');
+    if (failTitle) failTitle.textContent = t('analysisFailed');
+    const tryBtn = document.querySelector('#error-section button[onclick="resetAll()"]');
+    if (tryBtn) tryBtn.textContent = t('tryAgain');
+    document.getElementById('error-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     UTILITIES
+  ───────────────────────────────────────────────────────────── */
+  function resetAll() {
+    hide('results-section'); hide('error-section'); hide('loading-section');
+    [1,2,3].forEach(n => deactivateStep(`step-${['wx','ai','rep'][n-1]}`));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function copyReport() {
+    const txt = document.getElementById('report-content').innerText;
+    try {
+      await navigator.clipboard.writeText(txt);
+      toast(t('toastCopied'), 'safe');
+    } catch { toast(t('toastCopyFail'), 'warn'); }
+  }
+
+  function activateStep(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = 'rgba(33,137,212,0.5)';
+    el.style.background  = 'rgba(21,101,192,0.1)';
+    el.querySelector('p').style.color = '#38bdf8';
+  }
+  function deactivateStep(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.borderColor = 'rgba(33,137,212,0.15)';
+    el.style.background  = '';
+    el.querySelector('p').style.color = '#475569';
+  }
+
+  function setMsg(m) { setText('loading-msg', m); }
+
+  function show(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); }
+  function hide(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden');    }
+  function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+  function fmtBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    return (b/1024/1024).toFixed(1) + ' MB';
+  }
+
+  /* ── Toast notifications ── */
+  function toast(msg, type = 'info') {
+    const styles = {
+      safe: 'background:rgba(5,46,22,0.95);border-color:rgba(22,163,74,0.6);color:#22c55e;',
+      warn: 'background:rgba(67,20,7,0.95);border-color:rgba(217,119,6,0.6);color:#f59e0b;',
+      info: 'background:rgba(13,31,60,0.95);border-color:rgba(33,137,212,0.5);color:#38bdf8;',
+    };
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+      z-index:9999;${styles[type]||styles.info}
+      border:1.5px solid;border-radius:12px;padding:12px 20px;
+      font-size:0.9rem;font-weight:700;white-space:nowrap;
+      box-shadow:0 8px 32px rgba(0,0,0,0.5);
+      animation:fadeUp 0.3s ease-out;`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 2800);
+  }
+</script>
+</body>
+</html>
